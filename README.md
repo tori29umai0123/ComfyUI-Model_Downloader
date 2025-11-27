@@ -5,6 +5,7 @@ HuggingFaceとCivitAIからモデルを直接ダウンロードできるComfyUI�
 ## 機能
 
 - ✅ HuggingFace / CivitAI のURL自動判定
+- ✅ **HuggingFaceディレクトリごとダウンロード** 🆕
 - ✅ models以下の任意のサブディレクトリに保存可能
 - ✅ **ネストされたディレクトリ対応**（例: `loras/SDXL`, `checkpoints/anime/sdxl`）
 - ✅ SHA-256ハッシュ検証機能
@@ -39,6 +40,41 @@ git clone <your-repo-url> model_downloader
 pip install requests
 ```
 
+### APIキーの設定（必須: CivitAI、オプション: HuggingFace）
+
+多くのCivitAIモデルや、HuggingFaceのプライベート/Gatedモデルをダウンロードする場合、APIキーの設定が必要です。
+
+#### config.iniファイルでの設定
+
+```bash
+cd ComfyUI/custom_nodes/model_downloader
+cp config.ini.example config.ini
+# config.iniを編集してAPIキーを記入
+```
+
+**config.ini の例:**
+```ini
+[API_KEYS]
+# CivitAI API Key (多くのモデルで必須)
+civitai_api_key = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# HuggingFace Token (プライベート/Gatedモデル用、オプション)
+huggingface_token = hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**APIキーの取得方法:**
+- **CivitAI** (必須): https://civitai.com/user/account
+  - "API Keys" セクションで "Add API Key" をクリック
+  - 401 Unauthorized エラーを回避するために必要
+  
+- **HuggingFace** (オプション): https://huggingface.co/settings/tokens
+  - "Read access to contents of all public gated repos you can access" を選択
+  - プライベートリポジトリやGatedモデル（Llama 2, SDXL等）用
+
+**セキュリティ上の注意:**
+- config.iniにはAPIキーが含まれるため、Gitにコミットしないでください
+- .gitignoreに自動的に追加されています
+
 ## 使い方
 
 ### ノード1: Model Downloader (HF/CivitAI)
@@ -67,12 +103,24 @@ pip install requests
 - **filename**: 保存するファイル名（省略可）
   - 空の場合はURLから自動検出
 
+**自動バックアップ機能**
+- ダウンロード情報は自動的にカスタムノード直下の `models.ini` に保存されます
+- この`models.ini`は、ModelDownloaderFromINIノードで読み込んで一括ダウンロードに使用できます
+
 #### オプション項目
 
 - **expected_hash**: SHA-256ハッシュ（検証用、省略可）
   - 指定すると、ダウンロード後にファイルの整合性を検証
 
 - **max_retries**: 最大リトライ回数（デフォルト: 3）
+
+- **update_directory_ini**: ディレクトリダウンロード時のINI更新（デフォルト: False）
+  - `True`: ディレクトリ構造が変更された場合、models.iniを更新
+  - `False`: models.iniを更新しない（推奨）
+  - ディレクトリダウンロード時のみ有効
+  - 既存ファイルは常にスキップされます
+
+**注意**: APIキーは`config.ini`ファイルで設定します（UIからの入力は不要）
 
 ### 出力
 
@@ -94,12 +142,19 @@ models.iniファイルから複数のモデルを一括ダウンロードする�
 
 - **ini_file_path**: INIファイルのパス
   - 空欄の場合: カスタムノード直下の `models.ini` を使用（デフォルト）
-  - 指定する場合: カスタムINIファイルのパス
+  - 指定する場合: 任意のパスを指定可能
+  - 対応形式:
+    - `"E:\desktop\model1.ini"` (ダブルクォート付き、バックスラッシュ)
+    - `E:\desktop\model2.ini` (クォートなし、バックスラッシュ)
+    - `E:/desktop/model3.ini` (スラッシュ)
+    - `models.ini` (相対パス - カスタムノードディレクトリからの相対)
 
 ##### オプション項目
 
 - **max_retries**: 最大リトライ回数（デフォルト: 3）
 - **skip_existing**: 既存ファイルをスキップ（デフォルト: True）
+- **update_directory_ini**: ディレクトリ構造変更時にINIを更新（デフォルト: False）
+  - ディレクトリダウンロードで、ファイル数やパスが変更された場合のみINIを更新
 
 #### 出力
 
@@ -147,6 +202,32 @@ Filename: sdxl_BWLine.safetensors
 URL: https://huggingface.co/cagliostrolab/animagine-xl-3.1/resolve/main/animagine-xl-3.1.safetensors
 Subdirectory: checkpoints/anime/sdxl/animagine
 Filename: animagine-xl-3.1.safetensors
+```
+
+### 例6: HuggingFaceディレクトリごとダウンロード 🆕
+
+```
+URL: https://huggingface.co/2vXpSwA7/iroiro-lora/tree/main/qwen_lora
+Subdirectory: loras/qwen
+Filename: (空欄 - ディレクトリ内の全ファイルをダウンロード)
+```
+
+**動作:**
+- `qwen_lora` ディレクトリ内の全ファイルを自動検出
+- ディレクトリ構造を維持して `loras/qwen/` 以下に保存
+- サブディレクトリも再帰的にダウンロード
+- **既存ファイルは自動的にスキップ**（重複ダウンロードを防止）
+- `update_directory_ini=False`（デフォルト）: models.iniは更新しない
+- `update_directory_ini=True`: ディレクトリ構造が変更された場合のみmodels.iniを更新
+
+**対応URL形式:**
+```
+https://huggingface.co/{user}/{repo}/tree/{revision}/{directory_path}
+
+例:
+- https://huggingface.co/2vXpSwA7/iroiro-lora/tree/main/qwen_lora
+- https://huggingface.co/user/repo/tree/main
+- https://huggingface.co/user/repo/tree/main/subfolder/deep
 ```
 
 ## models.ini による環境再現
@@ -265,3 +346,10 @@ SHA-256ハッシュを指定すると、ダウンロード後にファイルの�
 - ComfyUIの `models` ディレクトリを確認
 - 指定したサブディレクトリが正しいか確認
 
+## ライセンス
+
+MIT License
+
+## 貢献
+
+バグ報告や機能リクエストは Issue でお願いします。

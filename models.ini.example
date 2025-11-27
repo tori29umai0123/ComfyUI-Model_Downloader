@@ -32,3 +32,16 @@ url = https://huggingface.co/kataragi/ControlNet-LineartXL/resolve/main/Kataragi
 subdirectory = controlnet/lineart
 filename = Kataragi_lineartXL-lora128.safetensors
 hash = bdc33b12ff20900a7fdea0b239c8ee66180d53b9a13f6f87a9d89d2aee9eac91
+
+# ディレクトリごとダウンロードの例（NEW!）
+# type=directory の場合、既存ファイルは自動的にスキップされます
+# update_directory_ini=True の場合のみ、構造変更時にこのセクションが更新されます
+[DIR_qwen_lora]
+type = directory
+url = https://huggingface.co/2vXpSwA7/iroiro-lora/tree/main/qwen_lora
+subdirectory = loras/qwen
+repo_id = 2vXpSwA7/iroiro-lora
+revision = main
+directory_path = qwen_lora
+file_count = 15
+timestamp = 2024-11-27 12:34:56

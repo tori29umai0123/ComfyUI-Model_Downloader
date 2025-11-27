@@ -1,0 +1,36 @@
+# ComfyUI Model Downloader - Configuration File
+# 
+# このファイルをコピーして "config.ini" という名前で保存してください
+# APIキーを設定することで、毎回UIで入力する必要がなくなります
+#
+# セキュリティ上の注意:
+# - このファイルにはAPIキーなどの機密情報が含まれます
+# - このファイルをGitにコミットしないでください
+# - .gitignoreに "config.ini" を追加してください
+
+[API_KEYS]
+# HuggingFace Personal Access Token
+# 取得方法: https://huggingface.co/settings/tokens
+# - Read access to contents of all public gated repos you can access
+# を選択してトークンを作成してください
+# 
+# 例: huggingface_token = hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+huggingface_token = 
+
+# CivitAI API Key
+# 取得方法: https://civitai.com/user/account
+# - "API Keys" セクションで "Add API Key" をクリック
+# - 生成されたキーをコピーしてください
+#
+# 例: civitai_api_key = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+civitai_api_key = 
+
+# 使用方法:
+# 1. このファイルを "config.ini" という名前でコピー
+# 2. 上記のAPIキーを記入（= の後ろにキーを貼り付け）
+# 3. ComfyUIを再起動
+# 4. ノードを使用する際、APIキー入力欄を空欄にすると自動的にconfig.iniから読み込まれます
+#
+# 優先順位:
+# - UIでAPIキーが入力されている場合: UIの入力を使用
+# - UIでAPIキーが空欄の場合: config.iniから読み込み

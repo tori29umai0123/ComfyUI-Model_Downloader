@@ -15,13 +15,97 @@ class ModelDownloader:
     
     def __init__(self):
         self.base_path = folder_paths.models_dir
-        # INIファイルはカスタムノードディレクトリ直下に配置
+        # INIファイルパスはパラメータで受け取るため、デフォルトは設定しない
         self.node_dir = os.path.dirname(os.path.abspath(__file__))
-        self.ini_path = os.path.join(self.node_dir, "models.ini")
+        
+        # config.iniからAPIキーを読み込み
+        self.config = self.load_config()
+        self.huggingface_token = self.config.get('huggingface_token', '')
+        self.civitai_api_key = self.config.get('civitai_api_key', '')
+    
+    def load_config(self):
+        """
+        config.iniからAPIキーを読み込み
+        
+        Returns:
+            dict: 設定情報の辞書
+        """
+        config_path = os.path.join(self.node_dir, "config.ini")
+        config_data = {
+            'huggingface_token': '',
+            'civitai_api_key': ''
+        }
+        
+        if not os.path.exists(config_path):
+            print(f"Config file not found: {config_path}")
+            print("API keys will need to be provided via UI or you can create config.ini")
+            return config_data
+        
+        config = configparser.ConfigParser()
+        try:
+            config.read(config_path, encoding='utf-8')
+            
+            if config.has_section('API_KEYS'):
+                if config.has_option('API_KEYS', 'huggingface_token'):
+                    config_data['huggingface_token'] = config.get('API_KEYS', 'huggingface_token').strip()
+                    if config_data['huggingface_token']:
+                        print("✓ Loaded HuggingFace token from config.ini")
+                
+                if config.has_option('API_KEYS', 'civitai_api_key'):
+                    config_data['civitai_api_key'] = config.get('API_KEYS', 'civitai_api_key').strip()
+                    if config_data['civitai_api_key']:
+                        print("✓ Loaded CivitAI API key from config.ini")
+            
+        except Exception as e:
+            print(f"Warning: Failed to load config.ini: {e}")
+        
+        return config_data
+    
+    def normalize_ini_path(self, ini_path):
+        """
+        INIファイルのパスを正規化
+        
+        対応する形式:
+        - "E:\desktop\model1.ini" (ダブルクォート付き、バックスラッシュ)
+        - E:\desktop\model2.ini (クォートなし、バックスラッシュ)
+        - E:/desktop/model3.ini (スラッシュ)
+        - models.ini (相対パス)
+        
+        Args:
+            ini_path: INIファイルのパス
+        
+        Returns:
+            正規化されたパス
+        """
+        if not ini_path or not ini_path.strip():
+            # 空の場合はカスタムノード直下のmodels.ini
+            return os.path.join(self.node_dir, "models.ini")
+        
+        # 前後の空白を削除
+        path = ini_path.strip()
+        
+        # ダブルクォートとシングルクォートを削除
+        if (path.startswith('"') and path.endswith('"')) or \
+           (path.startswith("'") and path.endswith("'")):
+            path = path[1:-1]
+        
+        # バックスラッシュをスラッシュに変換（Windowsパス対応）
+        path = path.replace('\\', '/')
+        
+        # 相対パスの場合は絶対パスに変換
+        if not os.path.isabs(path):
+            # カスタムノードディレクトリからの相対パスとして解釈
+            path = os.path.join(self.node_dir, path)
+        
+        # パスを正規化
+        path = os.path.normpath(path)
+        
+        return path
     
     def save_to_ini(self, url, subdirectory, filename, filepath, expected_hash=""):
         """
-        ダウンロードしたモデル情報をINIファイルに保存
+        ダウンロードしたモデル情報をINIファイルに保存（バックアップ用）
+        常にカスタムノード直下のmodels.iniに保存
         
         Args:
             url: ダウンロード元URL
@@ -30,11 +114,13 @@ class ModelDownloader:
             filepath: 完全なファイルパス
             expected_hash: SHA-256ハッシュ（オプション）
         """
+        ini_path = os.path.join(self.node_dir, "models.ini")
+        
         config = configparser.ConfigParser()
         
         # 既存のINIファイルを読み込み
-        if os.path.exists(self.ini_path):
-            config.read(self.ini_path, encoding='utf-8')
+        if os.path.exists(ini_path):
+            config.read(ini_path, encoding='utf-8')
         
         # セクション名を生成（ファイル名ベース、重複回避）
         base_section = filename.replace('.', '_')
@@ -60,11 +146,74 @@ class ModelDownloader:
             config.set(section_name, 'hash', expected_hash)
         config.set(section_name, 'timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         
+        # ディレクトリが存在しない場合は作成
+        ini_dir = os.path.dirname(ini_path)
+        if ini_dir and not os.path.exists(ini_dir):
+            os.makedirs(ini_dir, exist_ok=True)
+        
         # INIファイルに書き込み
-        with open(self.ini_path, 'w', encoding='utf-8') as f:
+        with open(ini_path, 'w', encoding='utf-8') as f:
             config.write(f)
         
-        print(f"Saved to INI: {self.ini_path} [section: {section_name}]")    
+        print(f"Saved to INI: {ini_path} [section: {section_name}]")
+    
+    def save_directory_to_ini(self, url, subdirectory, repo_id, revision, directory_path, file_count):
+        """
+        ダウンロードしたディレクトリ情報をINIファイルに保存（バックアップ用）
+        常にカスタムノード直下のmodels.iniに保存
+        
+        Args:
+            url: ディレクトリのURL
+            subdirectory: 保存先サブディレクトリ
+            repo_id: リポジトリID
+            revision: ブランチ/タグ
+            directory_path: ディレクトリパス
+            file_count: ファイル数
+        """
+        ini_path = os.path.join(self.node_dir, "models.ini")
+        
+        config = configparser.ConfigParser()
+        
+        # 既存のINIファイルを読み込み
+        if os.path.exists(ini_path):
+            config.read(ini_path, encoding='utf-8')
+        
+        # セクション名を生成
+        dir_name = directory_path.split('/')[-1] if directory_path else repo_id.split('/')[-1]
+        base_section = f"DIR_{dir_name.replace('.', '_').replace('/', '_')}"
+        section_name = base_section
+        counter = 1
+        while config.has_section(section_name):
+            if config.has_option(section_name, 'url') and config.get(section_name, 'url') == url:
+                break
+            section_name = f"{base_section}_{counter}"
+            counter += 1
+        
+        # セクションが存在しない場合は作成
+        if not config.has_section(section_name):
+            config.add_section(section_name)
+        
+        # 情報を記録
+        config.set(section_name, 'type', 'directory')
+        config.set(section_name, 'url', url)
+        config.set(section_name, 'subdirectory', subdirectory)
+        config.set(section_name, 'repo_id', repo_id)
+        config.set(section_name, 'revision', revision)
+        config.set(section_name, 'directory_path', directory_path if directory_path else '(root)')
+        config.set(section_name, 'file_count', str(file_count))
+        config.set(section_name, 'timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        
+        # ディレクトリが存在しない場合は作成
+        ini_dir = os.path.dirname(ini_path)
+        if ini_dir and not os.path.exists(ini_dir):
+            os.makedirs(ini_dir, exist_ok=True)
+        
+        # INIファイルに書き込み
+        with open(ini_path, 'w', encoding='utf-8') as f:
+            config.write(f)
+        
+        print(f"Saved directory info to INI: {ini_path} [section: {section_name}]")
+    
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -97,6 +246,9 @@ class ModelDownloader:
                     "max": 10,
                     "step": 1
                 }),
+                "update_directory_ini": ("BOOLEAN", {
+                    "default": False,
+                }),
             }
         }
     
@@ -107,13 +259,140 @@ class ModelDownloader:
     OUTPUT_NODE = True
 
     def detect_url_type(self, url):
-        """URLからダウンロード元を判定"""
+        """URLからダウンロード元とタイプを判定"""
         if "huggingface.co" in url:
-            return "huggingface"
+            if "/tree/" in url:
+                return "huggingface_directory"
+            elif "/resolve/" in url or "/blob/" in url:
+                return "huggingface"
+            else:
+                return "huggingface"  # デフォルト
         elif "civitai.com" in url:
             return "civitai"
         else:
             return "unknown"
+    
+    def parse_huggingface_directory_url(self, url):
+        """
+        HuggingFaceのディレクトリURLを解析
+        
+        例: https://huggingface.co/2vXpSwA7/iroiro-lora/tree/main/qwen_lora
+        
+        Returns:
+            tuple: (repo_id, revision, directory_path)
+        """
+        # URLパターン: https://huggingface.co/{user}/{repo}/tree/{revision}/{path}
+        match = re.search(r'huggingface\.co/([^/]+/[^/]+)/tree/([^/]+)(?:/(.+))?', url)
+        if match:
+            repo_id = match.group(1)
+            revision = match.group(2)
+            directory_path = match.group(3) if match.group(3) else ""
+            return repo_id, revision, directory_path
+        return None, None, None
+    
+    def check_directory_structure_changed(self, url, subdirectory, current_files, update_ini_enabled):
+        """
+        ディレクトリ構造が変更されたかチェック
+        
+        Args:
+            url: ディレクトリのURL
+            subdirectory: 保存先サブディレクトリ
+            current_files: 現在のファイルリスト
+            update_ini_enabled: INI更新が有効かどうか
+        
+        Returns:
+            bool: INI更新が必要かどうか
+        """
+        # update_ini_enabledがFalseなら常にFalse
+        if not update_ini_enabled:
+            return False
+        
+        ini_path = os.path.join(self.node_dir, "models.ini")
+        
+        # INIファイルが存在しない場合は更新が必要
+        if not os.path.exists(ini_path):
+            return True
+        
+        config = configparser.ConfigParser()
+        try:
+            config.read(ini_path, encoding='utf-8')
+        except:
+            return True
+        
+        # このURLのセクションを探す
+        for section in config.sections():
+            if config.has_option(section, 'url') and config.get(section, 'url') == url:
+                # ファイル数が変わったかチェック
+                old_file_count = int(config.get(section, 'file_count', fallback='0'))
+                if old_file_count != len(current_files):
+                    print(f"Directory structure changed: file count {old_file_count} → {len(current_files)}")
+                    return True
+                
+                # サブディレクトリが変わったかチェック
+                old_subdir = config.get(section, 'subdirectory', fallback='')
+                if old_subdir != subdirectory:
+                    print(f"Directory structure changed: subdirectory '{old_subdir}' → '{subdirectory}'")
+                    return True
+                
+                # 変更なし
+                print(f"Directory structure unchanged (INI update disabled or no changes)")
+                return False
+        
+        # セクションが見つからない場合は新規作成が必要
+        return True
+    
+    def get_directory_files(self, repo_id, revision="main", directory_path=""):
+        """
+        HuggingFaceのディレクトリ内のファイル一覧を取得
+        
+        Args:
+            repo_id: リポジトリID (例: "2vXpSwA7/iroiro-lora")
+            revision: ブランチ/タグ (例: "main")
+            directory_path: ディレクトリパス (例: "qwen_lora")
+        
+        Returns:
+            list: ファイル情報のリスト
+        """
+        # HuggingFace API を使用
+        if directory_path:
+            api_url = f"https://huggingface.co/api/models/{repo_id}/tree/{revision}/{directory_path}"
+        else:
+            api_url = f"https://huggingface.co/api/models/{repo_id}/tree/{revision}"
+        
+        print(f"Fetching file list from: {api_url}")
+        
+        try:
+            headers = {"User-Agent": "Mozilla/5.0"}
+            # HuggingFaceトークンが設定されている場合は使用
+            if self.huggingface_token:
+                headers["Authorization"] = f"Bearer {self.huggingface_token}"
+            
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+            items = response.json()
+            
+            # ファイルのみを抽出（再帰的にサブディレクトリも取得）
+            files = []
+            for item in items:
+                if item.get('type') == 'file':
+                    files.append(item)
+                elif item.get('type') == 'directory':
+                    # サブディレクトリの場合は再帰的に取得
+                    subdir_path = item.get('path')
+                    if directory_path:
+                        full_subdir_path = f"{directory_path}/{subdir_path}"
+                    else:
+                        full_subdir_path = subdir_path
+                    
+                    # 再帰的に取得
+                    sub_files = self.get_directory_files(repo_id, revision, full_subdir_path)
+                    files.extend(sub_files)
+            
+            return files
+            
+        except Exception as e:
+            print(f"Error fetching directory files: {e}")
+            return []
     
     def extract_filename_from_url(self, url, url_type):
         """URLからファイル名を抽出"""
@@ -203,7 +482,155 @@ class ModelDownloader:
         
         return normalized
     
-    def calculate_sha256(self, filepath, chunk_size=8192):
+    def download_directory(self, url, subdirectory, expected_hash="", max_retries=3, update_directory_ini=False):
+        """
+        HuggingFaceのディレクトリ全体をダウンロード
+        
+        Args:
+            url: ディレクトリのURL
+            subdirectory: 保存先サブディレクトリ
+            expected_hash: （ディレクトリの場合は使用しない）
+            max_retries: 最大リトライ回数
+            update_directory_ini: ディレクトリ構造変更時にINIを更新するか（デフォルト: False）
+        
+        Returns:
+            tuple: (status, file_paths)
+        """
+        # URLを解析
+        repo_id, revision, directory_path = self.parse_huggingface_directory_url(url)
+        
+        if not repo_id:
+            return ("Error: Invalid HuggingFace directory URL", [])
+        
+        print(f"\n{'='*70}")
+        print(f"Downloading directory from HuggingFace")
+        print(f"{'='*70}")
+        print(f"Repository: {repo_id}")
+        print(f"Revision: {revision}")
+        print(f"Directory: {directory_path if directory_path else '(root)'}")
+        print(f"Save to: {subdirectory}")
+        print(f"Update INI: {update_directory_ini}")
+        print(f"{'='*70}\n")
+        
+        # ファイル一覧を取得
+        files = self.get_directory_files(repo_id, revision, directory_path)
+        
+        if not files:
+            return (f"Error: No files found in directory", [])
+        
+        print(f"Found {len(files)} file(s) to download\n")
+        
+        # INI更新が必要かチェック
+        should_update_ini = self.check_directory_structure_changed(
+            url, subdirectory, files, update_directory_ini
+        )
+        
+        # 結果を記録
+        downloaded_files = []
+        failed_files = []
+        skipped_files = []
+        
+        # 各ファイルをダウンロード
+        for idx, file_info in enumerate(files, 1):
+            file_path_in_repo = file_info.get('path')
+            
+            # ファイル名を取得
+            filename = os.path.basename(file_path_in_repo)
+            
+            # ディレクトリパスから相対パスを計算
+            if directory_path:
+                # directory_path以下の相対パスを取得
+                if file_path_in_repo.startswith(directory_path + '/'):
+                    relative_path = file_path_in_repo[len(directory_path) + 1:]
+                elif file_path_in_repo.startswith(directory_path):
+                    relative_path = file_path_in_repo[len(directory_path):]
+                else:
+                    relative_path = file_path_in_repo
+            else:
+                relative_path = file_path_in_repo
+            
+            # 保存先のサブディレクトリを決定（元のディレクトリ構造を維持）
+            file_subdir_parts = os.path.dirname(relative_path).split('/')
+            if file_subdir_parts and file_subdir_parts[0]:
+                file_subdirectory = os.path.join(subdirectory, *file_subdir_parts)
+            else:
+                file_subdirectory = subdirectory
+            
+            print(f"[{idx}/{len(files)}] {relative_path}")
+            
+            # 保存先のフルパスを計算
+            try:
+                normalized_subdir = self.normalize_and_validate_path(file_subdirectory)
+                target_dir = os.path.join(self.base_path, normalized_subdir)
+                target_filepath = os.path.join(target_dir, filename)
+            except ValueError as e:
+                print(f"  ✗ Error: Invalid path - {e}\n")
+                failed_files.append(file_path_in_repo)
+                continue
+            
+            # 既存ファイルのチェック
+            if os.path.exists(target_filepath):
+                print(f"  ⊘ Skipped: {filename} (already exists)\n")
+                skipped_files.append(file_path_in_repo)
+                continue
+            
+            # ダウンロードURL生成
+            file_url = f"https://huggingface.co/{repo_id}/resolve/{revision}/{file_path_in_repo}"
+            
+            # ダウンロード実行
+            status, filepath = self.download_model(
+                url=file_url,
+                subdirectory=file_subdirectory,
+                filename=filename,
+                expected_hash="",  # ディレクトリダウンロード時は個別ファイルのハッシュ検証なし
+                max_retries=max_retries
+            )
+            
+            if filepath and "Error" not in status:
+                downloaded_files.append(filepath)
+                print(f"  ✓ Success: {filename}\n")
+            elif "already exists" in status:
+                # download_modelで既にスキップされた場合（二重チェック）
+                skipped_files.append(file_path_in_repo)
+                print(f"  ⊘ Skipped: {filename} (already exists)\n")
+            else:
+                failed_files.append(file_path_in_repo)
+                print(f"  ✗ Failed: {filename}\n")
+        
+        # サマリーを表示
+        print("\n" + "="*70)
+        print("DIRECTORY DOWNLOAD SUMMARY")
+        print("="*70)
+        print(f"Total files:     {len(files)}")
+        print(f"✓ Downloaded:    {len(downloaded_files)}")
+        print(f"⊘ Skipped:       {len(skipped_files)}")
+        print(f"✗ Failed:        {len(failed_files)}")
+        
+        if failed_files:
+            print(f"\nFailed files:")
+            for f in failed_files:
+                print(f"  - {f}")
+        
+        print("="*70)
+        
+        # ディレクトリ情報をINIに保存（構造変更時のみ、または初回）
+        if should_update_ini:
+            try:
+                self.save_directory_to_ini(url, subdirectory, repo_id, revision, directory_path, len(files))
+                print(f"✓ Updated models.ini with directory information")
+            except Exception as e:
+                print(f"Warning: Failed to save directory info to INI: {e}")
+        else:
+            print(f"⊘ Skipped INI update (update_directory_ini={update_directory_ini})")
+        
+        # 結果メッセージ
+        if failed_files:
+            status_msg = f"⚠ Directory download completed with errors: {len(downloaded_files)} downloaded, {len(skipped_files)} skipped, {len(failed_files)} failed"
+        else:
+            status_msg = f"✓ Directory download completed: {len(downloaded_files)} downloaded, {len(skipped_files)} skipped"
+        
+        return (status_msg, downloaded_files)
+
         """ファイルのSHA-256ハッシュを計算"""
         sha256_hash = hashlib.sha256()
         try:
@@ -242,6 +669,19 @@ class ModelDownloader:
             headers = {}
             if url_type == "huggingface":
                 headers = {"User-Agent": "Mozilla/5.0"}
+                # HuggingFaceトークンがconfig.iniに設定されている場合は使用
+                if self.huggingface_token:
+                    headers["Authorization"] = f"Bearer {self.huggingface_token}"
+                    print("✓ Using HuggingFace token from config.ini")
+            elif url_type == "civitai":
+                # CivitAI用のヘッダー
+                headers = {"User-Agent": "Mozilla/5.0"}
+                # config.iniからCivitAI APIキーを使用
+                if self.civitai_api_key:
+                    headers["Authorization"] = f"Bearer {self.civitai_api_key}"
+                    print("✓ Using CivitAI API key from config.ini")
+                else:
+                    print("⚠ No CivitAI API key found in config.ini (may fail for some models)")
             
             response = requests.get(url, headers=headers, stream=True, allow_redirects=True)
             response.raise_for_status()
@@ -284,7 +724,7 @@ class ModelDownloader:
                 os.remove(filepath)
             raise
     
-    def download_model(self, url, subdirectory, filename="", expected_hash="", max_retries=3):
+    def download_model(self, url, subdirectory, filename="", expected_hash="", max_retries=3, update_directory_ini=False):
         """モデルをダウンロードするメイン関数"""
         
         # URL検証
@@ -295,6 +735,10 @@ class ModelDownloader:
         url_type = self.detect_url_type(url)
         if url_type == "unknown":
             return (f"Error: Unsupported URL. Only HuggingFace and CivitAI are supported.", "")
+        
+        # HuggingFaceディレクトリの場合は専用メソッドを呼び出し
+        if url_type == "huggingface_directory":
+            return self.download_directory(url, subdirectory, expected_hash, max_retries, update_directory_ini)
         
         # サブディレクトリパスの正規化と検証
         try:
@@ -344,6 +788,8 @@ class ModelDownloader:
                             f"✓ File already exists and verified: {os.path.basename(filepath)}",
                             filepath
                         )
+                            filepath
+                        )
                     else:
                         print("Hash verification failed. Re-downloading...")
                         os.remove(filepath)
@@ -371,7 +817,7 @@ class ModelDownloader:
                 # 成功
                 success_msg = f"✓ Successfully downloaded: {os.path.basename(downloaded_path)}"
                 
-                # INIファイルに保存
+                # INIファイルに保存（バックアップ用）
                 try:
                     self.save_to_ini(url, subdirectory, filename, downloaded_path, expected_hash)
                 except Exception as e:
@@ -424,6 +870,9 @@ class ModelDownloaderFromINI:
                 "skip_existing": ("BOOLEAN", {
                     "default": True,
                 }),
+                "update_directory_ini": ("BOOLEAN", {
+                    "default": False,
+                }),
             }
         }
     
@@ -433,7 +882,7 @@ class ModelDownloaderFromINI:
     CATEGORY = "utils"
     OUTPUT_NODE = True
     
-    def download_from_ini(self, ini_file_path="", max_retries=3, skip_existing=True):
+    def download_from_ini(self, ini_file_path="", max_retries=3, skip_existing=True, update_directory_ini=False):
         """
         INIファイルからモデルを一括ダウンロード
         
@@ -441,12 +890,15 @@ class ModelDownloaderFromINI:
             ini_file_path: INIファイルのパス（空の場合はデフォルト位置）
             max_retries: 最大リトライ回数
             skip_existing: 既存ファイルをスキップするか
+            update_directory_ini: ディレクトリ構造変更時にINIを更新するか
         """
-        # INIファイルパスの決定
-        if not ini_file_path or not ini_file_path.strip():
-            ini_path = self.default_ini_path
-        else:
-            ini_path = ini_file_path
+        # ModelDownloaderインスタンスを作成（パス正規化に使用）
+        downloader = ModelDownloader()
+        
+        # INIファイルパスの正規化
+        ini_path = downloader.normalize_ini_path(ini_file_path)
+        
+        print(f"Using INI file: {ini_path}")
         
         # INIファイルの存在チェック
         if not os.path.exists(ini_path):
@@ -476,9 +928,6 @@ class ModelDownloaderFromINI:
         print(f"Found {len(config.sections())} model(s)")
         print("="*70)
         
-        # ModelDownloaderインスタンスを作成
-        downloader = ModelDownloader()
-        
         # 結果を記録
         results = {
             'total': len(config.sections()),
@@ -506,15 +955,18 @@ class ModelDownloaderFromINI:
                 subdirectory = config.get(section, 'subdirectory', fallback='checkpoints')
                 filename = config.get(section, 'filename', fallback='')
                 expected_hash = config.get(section, 'hash', fallback='')
+                item_type = config.get(section, 'type', fallback='file')
                 
+                print(f"Type: {item_type}")
                 print(f"URL: {url}")
                 print(f"Subdirectory: {subdirectory}")
-                print(f"Filename: {filename}")
+                if item_type != 'directory':
+                    print(f"Filename: {filename}")
                 if expected_hash:
                     print(f"Hash: {expected_hash[:16]}...")
                 
-                # ファイルの存在チェック
-                if skip_existing and filename:
+                # ディレクトリタイプの場合はファイル存在チェックをスキップ
+                if skip_existing and filename and item_type != 'directory':
                     target_path = os.path.join(self.base_path, subdirectory, filename)
                     if os.path.exists(target_path):
                         print(f"Skipping: File already exists")
@@ -527,7 +979,8 @@ class ModelDownloaderFromINI:
                     subdirectory=subdirectory,
                     filename=filename,
                     expected_hash=expected_hash,
-                    max_retries=max_retries
+                    max_retries=max_retries,
+                    update_directory_ini=update_directory_ini
                 )
                 
                 if filepath and "Error" not in status:
