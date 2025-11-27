@@ -1355,37 +1355,17 @@ class HuggingFaceDirectoryDownloader:
             
             print(f"[{idx}/{len(filtered_files)}] {file_path_in_repo}")
             
-            # ダウンロードURL生成（スキップ時のINI保存にも使用）
-            file_url = f"https://huggingface.co/{model_id}/resolve/{revision}/{file_path_in_repo}"
-            
-            # サブディレクトリの計算（INI保存用）
-            if dir_path:
-                subdirectory_for_ini = os.path.join(save_folder, repo_name, dir_path)
-            else:
-                subdirectory_for_ini = os.path.join(save_folder, repo_name)
-            
             # 既存ファイルのチェック
             if os.path.exists(target_filepath):
                 print(f"  ⊘ Skipped: {filename} (already exists)\n")
                 skipped_files.append(file_path_in_repo)
-                
-                # 既存ファイルもmodels.iniに保存（記録がない場合のため）
-                try:
-                    self.downloader.save_to_ini(
-                        url=file_url,
-                        subdirectory=subdirectory_for_ini,
-                        filename=filename,
-                        filepath=target_filepath,
-                        expected_hash=""
-                    )
-                except Exception:
-                    # エラーは無視（既に記録されている可能性があるため）
-                    pass
-                
                 continue
             
             # ディレクトリを作成
             os.makedirs(target_dir, exist_ok=True)
+            
+            # ダウンロードURL生成
+            file_url = f"https://huggingface.co/{model_id}/resolve/{revision}/{file_path_in_repo}"
             
             # ダウンロード実行
             success = False
@@ -1417,25 +1397,6 @@ class HuggingFaceDirectoryDownloader:
                     print(f"  ✓ Success: {filename}\n")
                     downloaded_files.append(file_path_in_repo)
                     success = True
-                    
-                    # models.iniに保存
-                    try:
-                        # サブディレクトリの計算（save_folder/repo_name/dir_path）
-                        if dir_path:
-                            subdirectory_for_ini = os.path.join(save_folder, repo_name, dir_path)
-                        else:
-                            subdirectory_for_ini = os.path.join(save_folder, repo_name)
-                        
-                        self.downloader.save_to_ini(
-                            url=file_url,
-                            subdirectory=subdirectory_for_ini,
-                            filename=filename,
-                            filepath=target_filepath,
-                            expected_hash=""
-                        )
-                    except Exception as e:
-                        print(f"  ⚠ Warning: Failed to save to models.ini: {e}")
-                    
                     break
                     
                 except Exception as e:

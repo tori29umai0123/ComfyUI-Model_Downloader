@@ -9,7 +9,7 @@ URL指定で個別ファイルまたは特定ディレクトリをダウンロ�
 - HuggingFace、CivitAI対応
 - 柔軟なファイル指定
 
-### 2. HuggingFace Directory Downloader
+### 2. HuggingFace Directory Downloader 🆕
 モデルIDでリポジトリ全体をダウンロード
 - LLMやSDモデルに最適
 - ディレクトリ構造を完全保持
@@ -21,10 +21,6 @@ INIファイルから一括ダウンロード
 
 ### インストール方法
 
-```bash
-cd ComfyUI/custom_nodes
-git clone https://github.com/tori29umai0123/ComfyUI-Model_Downloader.git
-```
 ### APIキーの設定（必須: CivitAI、オプション: HuggingFace）
 
 多くのCivitAIモデルや、HuggingFaceのプライベート/Gatedモデルをダウンロードする場合、APIキーの設定が必要です。
@@ -446,6 +442,8 @@ ComfyUI/custom_nodes/model_downloader/models.ini
 
 #### 1. 個別ファイル形式（Model Downloader）
 
+**Model Downloader (HF/CivitAI)を使用した場合：**
+
 ```ini
 [sdxl_BWLine_safetensors]
 url = https://huggingface.co/tori29umai/lineart/resolve/main/sdxl_BWLine.safetensors
@@ -458,6 +456,8 @@ timestamp = 2024-11-27 12:34:56
 
 #### 2. HuggingFace Directory形式 🆕
 
+**HuggingFace Directory Downloaderを使用した場合：**
+
 ```ini
 [HF_DIR_Qwen2_VL_7B_Instruct]
 type = huggingface_directory
@@ -468,6 +468,11 @@ exclude_files = README.md, .gitattributes
 file_count = 45
 timestamp = 2024-11-27 12:00:00
 ```
+
+**重要:** 
+- HuggingFace Directory Downloaderは**リポジトリ全体の情報のみ**を保存します
+- 個別ファイルは保存しません（リポジトリ情報だけで再ダウンロード可能なため）
+- これにより、models.iniがシンプルで管理しやすくなります
 
 #### 3. 混在例
 
@@ -657,3 +662,15 @@ SHA-256ハッシュを指定すると、ダウンロード後にファイルの�
 - ハッシュ値が正しいか確認（大文字小文字は無視されます）
 - ファイルが破損している可能性があるため、再ダウンロードを試す
 
+### ファイルが見つからない
+
+- ComfyUIの `models` ディレクトリを確認
+- 指定したサブディレクトリが正しいか確認
+
+## ライセンス
+
+MIT License
+
+## 貢献
+
+バグ報告や機能リクエストは Issue でお願いします。
