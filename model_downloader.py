@@ -1020,11 +1020,6 @@ class ModelDownloaderFromINI:
                 }),
             },
             "optional": {
-                "exclude_files": ("STRING", {
-                    "default": "README.md, .gitattributes",
-                    "multiline": False,
-                    "placeholder": "Files to exclude (comma-separated)"
-                }),
                 "max_retries": ("INT", {
                     "default": 3,
                     "min": 1,
@@ -1043,13 +1038,12 @@ class ModelDownloaderFromINI:
     CATEGORY = "utils"
     OUTPUT_NODE = True
     
-    def download_from_ini(self, ini_file_path="", exclude_files="README.md, .gitattributes", max_retries=3, skip_existing=True):
+    def download_from_ini(self, ini_file_path="", max_retries=3, skip_existing=True):
         """
         INIファイルからモデルを一括ダウンロード
         
         Args:
             ini_file_path: INIファイルのパス（空の場合はデフォルト位置）
-            exclude_files: 除外するファイル名（カンマ区切り）
             max_retries: 最大リトライ回数
             skip_existing: 既存ファイルをスキップするか
         """
@@ -1105,7 +1099,7 @@ class ModelDownloaderFromINI:
                 model_id = config.get(section, 'model_id')
                 save_folder = config.get(section, 'save_folder', fallback='LLM')
                 revision = config.get(section, 'revision', fallback='main')
-                section_exclude_files = config.get(section, 'exclude_files', fallback=exclude_files)
+                section_exclude_files = config.get(section, 'exclude_files', fallback='README.md, .gitattributes')
                 
                 print(f"  Type: HuggingFace Directory")
                 print(f"  Model ID: {model_id}")
@@ -1163,7 +1157,7 @@ class ModelDownloaderFromINI:
                     url=url,
                     subdirectory=subdirectory,
                     filename=filename,
-                    exclude_files=exclude_files,
+                    exclude_files="",  # 個別ファイルダウンロードでは使用しない
                     expected_hash=expected_hash,
                     max_retries=max_retries
                 )
