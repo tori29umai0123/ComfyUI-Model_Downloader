@@ -2,17 +2,32 @@
 
 HuggingFaceとCivitAIからモデルを直接ダウンロードできるComfyUIカスタムノードです。
 
-## インストール方法
+## 3つのノード
+
+### 1. Model Downloader (HF/CivitAI)
+URL指定で個別ファイルまたは特定ディレクトリをダウンロード
+- HuggingFace、CivitAI対応
+- 柔軟なファイル指定
+
+### 2. HuggingFace Directory Downloader 🆕
+モデルIDでリポジトリ全体をダウンロード
+- LLMやSDモデルに最適
+- ディレクトリ構造を完全保持
+
+### 3. Model Downloader from INI
+INIファイルから一括ダウンロード
+- 環境再現に最適
+- プロジェクト管理
+
+### インストール方法
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/tori29umai0123/ComfyUI-Model_Downloader.git
 ```
-
-
 ### APIキーの設定（必須: CivitAI、オプション: HuggingFace）
 
-CivitAIモデル(必須)や、HuggingFaceのプライベート/Gatedモデルをダウンロードする場合、APIキーの設定が必要です。
+多くのCivitAIモデルや、HuggingFaceのプライベート/Gatedモデルをダウンロードする場合、APIキーの設定が必要です。
 
 #### config.iniファイルでの設定
 
@@ -40,6 +55,10 @@ huggingface_token = hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 - **HuggingFace** (オプション): https://huggingface.co/settings/tokens
   - "Read access to contents of all public gated repos you can access" を選択
   - プライベートリポジトリやGatedモデル（Llama 2, SDXL等）用
+
+**セキュリティ上の注意:**
+- config.iniにはAPIキーが含まれるため、Gitにコミットしないでください
+- .gitignoreに自動的に追加されています
 
 ## 使い方
 
@@ -75,16 +94,16 @@ huggingface_token = hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 #### オプション項目
 
+- **exclude_files**: 除外するファイル名（カンマ区切り）
+  - デフォルト: `README.md, .gitattributes`
+  - ディレクトリダウンロード時のみ有効
+  - 例: `README.md, .gitattributes, LICENSE, .git`
+  - ファイル名の完全一致でフィルタリング
+
 - **expected_hash**: SHA-256ハッシュ（検証用、省略可）
   - 指定すると、ダウンロード後にファイルの整合性を検証
 
 - **max_retries**: 最大リトライ回数（デフォルト: 3）
-
-- **update_directory_ini**: ディレクトリダウンロード時のINI更新（デフォルト: False）
-  - `True`: ディレクトリ構造が変更された場合、models.iniを更新
-  - `False`: models.iniを更新しない（推奨）
-  - ディレクトリダウンロード時のみ有効
-  - 既存ファイルは常にスキップされます
 
 **注意**: APIキーは`config.ini`ファイルで設定します（UIからの入力は不要）
 
@@ -93,7 +112,141 @@ huggingface_token = hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 - **status**: ダウンロード結果のステータスメッセージ
 - **file_path**: ダウンロードされたファイルの完全パス
 
-### ノード2: Model Downloader from INI
+### ノード2: HuggingFace Directory Downloader
+
+HuggingFaceのリポジトリ全体をディレクトリ構造ごとダウンロードする専用ノードです。
+
+#### 概要
+
+**シンプルな使い方:**
+- モデルID（例: `Qwen/Qwen2-VL-7B-Instruct`）を指定するだけ
+- リポジトリ全体が`models/指定フォルダ/`以下にダウンロードされます
+- ディレクトリ構造が完全に保持されます
+
+**Model Downloaderとの違い:**
+- Model Downloader: URL指定で個別ファイルや特定ディレクトリをダウンロード
+- HuggingFace Directory Downloader: モデルIDのみでリポジトリ全体をダウンロード
+
+#### ノードの追加
+
+1. ComfyUIを起動
+2. 右クリック → `Add Node` → `utils` → `HuggingFace Directory Downloader`
+
+#### 入力パラメータ
+
+##### 必須項目
+
+- **model_id**: HuggingFaceのモデルID
+  - 例: `Qwen/Qwen2-VL-7B-Instruct`
+  - 例: `stabilityai/stable-diffusion-xl-base-1.0`
+  - 例: `meta-llama/Llama-2-7b-hf`
+  - フォーマット: `ユーザー名/リポジトリ名`
+
+- **save_folder**: models以下の保存先フォルダ名
+  - 例: `LLM` → `models/LLM/Qwen2-VL-7B-Instruct/`に保存
+  - 例: `checkpoints/sdxl` → `models/checkpoints/sdxl/stable-diffusion-xl-base-1.0/`に保存
+  - 例: `loras/anime` → `models/loras/anime/anime-lora-collection/`に保存
+  - **自動的にリポジトリ名のサブフォルダが作成されます**
+
+##### オプション項目
+
+- **exclude_files**: 除外するファイル名（カンマ区切り）
+  - デフォルト: `README.md, .gitattributes`
+  - 例: `README.md, .gitattributes, LICENSE`
+  - ファイル名の完全一致でフィルタリング
+
+- **revision**: ブランチ/タグ名
+  - デフォルト: `main`
+  - 例: `v1.0`, `dev`, `legacy`
+
+- **max_retries**: 最大リトライ回数（デフォルト: 3）
+
+#### 出力
+
+- **status**: ダウンロード結果のステータスメッセージ
+- **download_path**: ダウンロード先のフルパス
+
+#### ディレクトリ構造の保持
+
+**HuggingFaceリポジトリの例:**
+```
+model-repo/
+├─ config.json
+├─ model.safetensors
+├─ tokenizer/
+│  ├─ tokenizer.json
+│  └─ special_tokens_map.json
+└─ scheduler/
+   └─ scheduler_config.json
+```
+
+**ダウンロード後（save_folder: LLM, model_id: user/model-repo）:**
+```
+models/LLM/model-repo/
+├─ config.json
+├─ model.safetensors
+├─ tokenizer/
+│  ├─ tokenizer.json
+│  └─ special_tokens_map.json
+└─ scheduler/
+   └─ scheduler_config.json
+```
+
+**リポジトリ名のサブフォルダが自動作成されます**
+完全に同じディレクトリ構造が再現されます。
+
+#### 使用例
+
+##### 例1: LLMモデルのダウンロード
+
+```
+model_id: Qwen/Qwen2-VL-7B-Instruct
+save_folder: LLM
+→ models/LLM/Qwen2-VL-7B-Instruct/ にリポジトリ全体をダウンロード
+```
+
+##### 例2: Stable Diffusion XLモデル
+
+```
+model_id: stabilityai/stable-diffusion-xl-base-1.0
+save_folder: checkpoints/sdxl
+→ models/checkpoints/sdxl/stable-diffusion-xl-base-1.0/ にリポジトリ全体をダウンロード
+```
+
+##### 例3: 特定バージョンのダウンロード
+
+```
+model_id: meta-llama/Llama-2-7b-hf
+save_folder: LLM
+revision: v1.0
+→ models/LLM/Llama-2-7b-hf/ にv1.0タグのリポジトリをダウンロード
+```
+
+##### 例4: カスタム除外設定
+
+```
+model_id: runwayml/stable-diffusion-v1-5
+save_folder: checkpoints
+exclude_files: README.md, .gitattributes, LICENSE, model_index.json
+→ models/checkpoints/stable-diffusion-v1-5/ に指定したファイルを除外してダウンロード
+```
+
+#### 注意事項
+
+**HuggingFaceトークンについて:**
+- 公開モデル: トークン不要
+- プライベートリポジトリ/Gated Models: config.iniにトークンが必要
+- トークンは自動的に使用されます
+
+**既存ファイルのスキップ:**
+- 同名ファイルが既に存在する場合、自動的にスキップされます
+- 再ダウンロードしたい場合は、既存ファイルを削除してください
+
+**ストレージ容量:**
+- LLMモデルは数GB〜数十GBになる場合があります
+- ダウンロード前に十分な空き容量があることを確認してください
+
+### ノード3: Model Downloader from INI
 
 models.iniファイルから複数のモデルを一括ダウンロードするノードです。
 
@@ -115,24 +268,13 @@ models.iniファイルから複数のモデルを一括ダウンロードする�
     - `E:/desktop/model3.ini` (スラッシュ)
     - `models.ini` (相対パス - カスタムノードディレクトリからの相対)
 
-#### オプション項目
-
-- **exclude_files**: 除外するファイル名（カンマ区切り）
-  - デフォルト: `README.md, .gitattributes`
-  - ディレクトリダウンロード時のみ有効
-  - 例: `README.md, .gitattributes, LICENSE, .git`
-  - ファイル名の完全一致でフィルタリング
-
-- **expected_hash**: SHA-256ハッシュ（検証用、省略可）
-  - 指定すると、ダウンロード後にファイルの整合性を検証
+##### オプション項目
 
 - **max_retries**: 最大リトライ回数（デフォルト: 3）
+- **skip_existing**: 既存ファイルをスキップ（デフォルト: True）
+- **update_directory_ini**: ディレクトリ構造変更時にINIを更新（デフォルト: False）
+  - ディレクトリダウンロードで、ファイル数やパスが変更された場合のみINIを更新
 
-- **update_directory_ini**: ディレクトリダウンロード時のINI更新（デフォルト: False）
-  - `True`: ディレクトリ構造が変更された場合、models.iniを更新
-  - `False`: models.iniを更新しない（推奨）
-  - ディレクトリダウンロード時のみ有効
-  - 既存ファイルは常にスキップされます
 #### 出力
 
 - **status**: 一括ダウンロードの結果サマリー
@@ -207,6 +349,88 @@ https://huggingface.co/{user}/{repo}/tree/{revision}/{directory_path}
 - https://huggingface.co/user/repo/tree/main/subfolder/deep
 ```
 
+### 例7: HuggingFace Directory Downloaderでリポジトリ全体をダウンロード 🆕
+
+**ノード:** HuggingFace Directory Downloader
+
+#### 例7-1: LLMモデルのダウンロード
+
+```
+model_id: Qwen/Qwen2-VL-7B-Instruct
+save_folder: LLM
+revision: main
+exclude_files: README.md, .gitattributes
+```
+
+**結果:**
+```
+models/LLM/Qwen2-VL-7B-Instruct/
+├─ config.json
+├─ model.safetensors
+├─ tokenizer/
+│  ├─ tokenizer.json
+│  └─ special_tokens_map.json
+├─ scheduler/
+│  └─ scheduler_config.json
+└─ ... (その他全ファイル)
+```
+
+#### 例7-2: Stable Diffusion XLモデル
+
+```
+model_id: stabilityai/stable-diffusion-xl-base-1.0
+save_folder: checkpoints
+```
+
+**結果:**
+```
+models/checkpoints/stable-diffusion-xl-base-1.0/
+├─ model_index.json
+├─ scheduler/
+├─ text_encoder/
+├─ text_encoder_2/
+├─ tokenizer/
+├─ tokenizer_2/
+├─ unet/
+└─ vae/
+```
+
+#### 例7-3: 特定バージョンのダウンロード
+
+```
+model_id: meta-llama/Llama-2-7b-hf
+save_folder: LLM
+revision: v1.0
+```
+
+**結果:**
+```
+models/LLM/Llama-2-7b-hf/
+└─ ... (v1.0のファイル)
+```
+
+#### Model Downloaderとの使い分け
+
+**HuggingFace Directory Downloader（新しいノード）を使う場合:**
+- リポジトリ全体をダウンロードしたい
+- モデルIDがわかっている
+- シンプルに使いたい
+
+```
+✅ model_id: Qwen/Qwen2-VL-7B-Instruct
+✅ save_folder: LLM
+```
+
+**Model Downloader (HF/CivitAI)を使う場合:**
+- 特定のファイルだけダウンロードしたい
+- CivitAIからダウンロードしたい
+- URLが既にある
+
+```
+✅ url: https://huggingface.co/.../file.safetensors
+✅ subdirectory: checkpoints
+```
+
 ## models.ini による環境再現
 
 ### 自動記録機能
@@ -218,7 +442,10 @@ https://huggingface.co/{user}/{repo}/tree/{revision}/{directory_path}
 ComfyUI/custom_nodes/model_downloader/models.ini
 ```
 
-**models.ini の例:**
+### models.iniの形式
+
+#### 1. 個別ファイル形式（Model Downloader）
+
 ```ini
 [sdxl_BWLine_safetensors]
 url = https://huggingface.co/tori29umai/lineart/resolve/main/sdxl_BWLine.safetensors
@@ -227,6 +454,62 @@ filename = sdxl_BWLine.safetensors
 filepath = loras/SDXL/sdxl_BWLine.safetensors
 hash = 07c59708361b3e2e4f0b0c0f232183f5f39c32c31b6b6981b4392ea30d49dd57
 timestamp = 2024-11-27 12:34:56
+```
+
+#### 2. HuggingFace Directory形式 🆕
+
+```ini
+[HF_DIR_Qwen2_VL_7B_Instruct]
+type = huggingface_directory
+model_id = Qwen/Qwen2-VL-7B-Instruct
+save_folder = LLM
+revision = main
+exclude_files = README.md, .gitattributes
+file_count = 45
+timestamp = 2024-11-27 12:00:00
+```
+
+#### 3. 混在例
+
+```ini
+# HuggingFace Directoryダウンロード
+[HF_DIR_Qwen2_VL_7B_Instruct]
+type = huggingface_directory
+model_id = Qwen/Qwen2-VL-7B-Instruct
+save_folder = LLM
+revision = main
+exclude_files = README.md, .gitattributes
+
+# 個別ファイルダウンロード
+[sdxl_turbo_safetensors]
+url = https://huggingface.co/stabilityai/sdxl-turbo/resolve/main/sd_xl_turbo_1.0.safetensors
+subdirectory = checkpoints/sdxl
+filename = sdxl_turbo.safetensors
+
+# HuggingFace Directoryダウンロード
+[HF_DIR_stable_diffusion_xl_base_1_0]
+type = huggingface_directory
+model_id = stabilityai/stable-diffusion-xl-base-1.0
+save_folder = checkpoints
+revision = main
+```
+
+### Model Downloader from INIでの処理
+
+**自動認識:**
+- `type = huggingface_directory`: HuggingFaceDirectoryDownloaderを使用
+- `type` なしまたは `type = file`: ModelDownloaderを使用
+
+**一括ダウンロード:**
+```
+Model Downloader from INI ノード
+└─ ini_file_path: （空欄 - デフォルト）
+
+結果:
+✓ HuggingFace Directory形式を自動認識
+✓ 通常のファイル形式も処理
+✓ 全てのモデルを一括ダウンロード
+```
 
 [animagine-xl-3_1_safetensors]
 url = https://huggingface.co/cagliostrolab/animagine-xl-3.1/resolve/main/animagine-xl-3.1.safetensors
@@ -305,20 +588,72 @@ SHA-256ハッシュを指定すると、ダウンロード後にファイルの�
 - ハッシュ不一致時は自動リトライ
 - 最大リトライ回数に達したらエラーメッセージを表示
 
+## ノード比較表
+
+| 特徴 | Model Downloader | HuggingFace Directory Downloader | Model Downloader from INI |
+|------|-----------------|----------------------------------|---------------------------|
+| **用途** | 個別ファイルまたは特定ディレクトリ | リポジトリ全体 | 一括ダウンロード |
+| **入力** | URL | モデルID | INIファイル |
+| **HuggingFace** | ✅ | ✅ | ✅ |
+| **CivitAI** | ✅ | ❌ | ✅ |
+| **ディレクトリ構造保持** | ✅ (部分的) | ✅ (完全) | ✅ |
+| **シンプルさ** | 中 | 高 | 中 |
+| **柔軟性** | 高 | 低 | 高 |
+| **おすすめ用途** | 個別ファイル、CivitAI | LLM、SDモデル全体 | 環境再現、バッチ処理 |
+
+### 使い分けガイド
+
+**HuggingFace Directory Downloaderを使う:**
+- ✅ LLMモデルを丸ごとダウンロードしたい
+- ✅ Stable Diffusionモデル全体が必要
+- ✅ モデルIDだけわかっている
+- ✅ シンプルに使いたい
+
+**Model Downloader (HF/CivitAI)を使う:**
+- ✅ 特定のファイルだけ欲しい
+- ✅ CivitAIからダウンロードしたい
+- ✅ URLが既にある
+- ✅ 細かく制御したい
+
+**Model Downloader from INIを使う:**
+- ✅ 複数のモデルを一括ダウンロードしたい
+- ✅ 環境を再現したい
+- ✅ プロジェクトごとにモデルを管理したい
+
 ## トラブルシューティング
 
 ### ダウンロードが失敗する
 
 - インターネット接続を確認
-- URLが正しいか確認
-- CivitAIの場合、APIキーが必要な場合があります
+- URLまたはモデルIDが正しいか確認
+- CivitAIの場合、config.iniにAPIキーが設定されているか確認
+- HuggingFaceのプライベート/Gatedモデルの場合、config.iniにトークンが設定されているか確認
+
+### 401 Unauthorized エラー (CivitAI)
+
+- config.iniにCivitAI APIキーを設定してください
+- APIキーの取得: https://civitai.com/user/account
+
+### 403 Forbidden エラー (HuggingFace)
+
+- プライベートリポジトリまたはGated Modelの可能性があります
+- HuggingFaceのモデルページで利用規約に同意してください
+- config.iniにHuggingFaceトークンを設定してください
+
+### HuggingFace Directory Downloaderでダウンロードが遅い
+
+- LLMモデルは数GB〜数十GBあります
+- 進捗表示を確認してください
+- ネットワーク速度に依存します
+
+### モデルIDが見つからない
+
+- HuggingFaceのウェブサイトでモデルIDを確認してください
+- フォーマット: `ユーザー名/リポジトリ名` (例: `Qwen/Qwen2-VL-7B-Instruct`)
+- 大文字小文字を正確に入力してください
 
 ### ハッシュ検証が失敗する
 
 - ハッシュ値が正しいか確認（大文字小文字は無視されます）
 - ファイルが破損している可能性があるため、再ダウンロードを試す
 
-### ファイルが見つからない
-
-- ComfyUIの `models` ディレクトリを確認
-- 指定したサブディレクトリが正しいか確認
