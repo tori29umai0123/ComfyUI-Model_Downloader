@@ -41,10 +41,6 @@ huggingface_token = hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   - "Read access to contents of all public gated repos you can access" を選択
   - プライベートリポジトリやGatedモデル（Llama 2, SDXL等）用
 
-**セキュリティ上の注意:**
-- config.iniにはAPIキーが含まれるため、Gitにコミットしないでください
-- .gitignoreに自動的に追加されています
-
 ## 使い方
 
 ### ノード1: Model Downloader (HF/CivitAI)
