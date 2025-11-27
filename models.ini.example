@@ -1,0 +1,34 @@
+# ComfyUI Model Configuration
+# このファイルをComfyUI/custom_nodes/model_downloader/models.iniに配置して、
+# "Model Downloader from INI" ノードで一括ダウンロードできます
+
+[sdxl_BWLine_safetensors]
+url = https://huggingface.co/tori29umai/lineart/resolve/main/sdxl_BWLine.safetensors
+subdirectory = loras
+filename = sdxl_BWLine.safetensors
+hash = 07c59708361b3e2e4f0b0c0f232183f5f39c32c31b6b6981b4392ea30d49dd57
+
+[sdxl_BW_bold_Line_safetensors]
+url = https://huggingface.co/tori29umai/lineart/resolve/main/sdxl_BW_bold_Line.safetensors
+subdirectory = loras
+filename = sdxl_BW_bold_Line.safetensors
+hash = eda02fe96a41c60fba6a885072837d24e51a83897eb5ca4ead24a5a248e840b7
+
+[animagine-xl-3_1_safetensors]
+url = https://huggingface.co/cagliostrolab/animagine-xl-3.1/resolve/main/animagine-xl-3.1.safetensors
+subdirectory = checkpoints
+filename = animagine-xl-3.1.safetensors
+hash = e3c47aedb06418c6c331443cd89f2b3b3b34b7ed2102a3d4c4408a8d35aad6b0
+
+[controlnet852AClone_v10_safetensors]
+url = https://civitai.com/api/download/models/515749?type=Model&format=SafeTensor
+subdirectory = controlnet
+filename = controlnet852AClone_v10.safetensors
+hash = 58bae8a373d6a39b33a5d110c5b22894fc86b7b1e189b05b163e69446c7f48ee
+
+# ネストされたディレクトリの例
+[lineartXL_lora128_safetensors]
+url = https://huggingface.co/kataragi/ControlNet-LineartXL/resolve/main/Kataragi_lineartXL-lora128.safetensors
+subdirectory = controlnet/lineart
+filename = Kataragi_lineartXL-lora128.safetensors
+hash = bdc33b12ff20900a7fdea0b239c8ee66180d53b9a13f6f87a9d89d2aee9eac91
