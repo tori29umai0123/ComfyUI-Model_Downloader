@@ -788,8 +788,6 @@ class ModelDownloader:
                             f"✓ File already exists and verified: {os.path.basename(filepath)}",
                             filepath
                         )
-                            filepath
-                        )
                     else:
                         print("Hash verification failed. Re-downloading...")
                         os.remove(filepath)
