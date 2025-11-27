@@ -1,4 +1,6 @@
+# ComfyUI-Model_Downloader
 model.ini
+config.ini
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
