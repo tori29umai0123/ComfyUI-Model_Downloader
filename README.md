@@ -9,7 +9,7 @@ URL指定で個別ファイルまたは特定ディレクトリをダウンロ�
 - HuggingFace、CivitAI対応
 - 柔軟なファイル指定
 
-### 2. HuggingFace Directory Downloader 🆕
+### 2. HuggingFace Directory Downloader
 モデルIDでリポジトリ全体をダウンロード
 - LLMやSDモデルに最適
 - ディレクトリ構造を完全保持
