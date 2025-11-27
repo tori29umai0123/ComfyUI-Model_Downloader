@@ -2,47 +2,17 @@
 
 HuggingFaceとCivitAIからモデルを直接ダウンロードできるComfyUIカスタムノードです。
 
-## 機能
-
-- ✅ HuggingFace / CivitAI のURL自動判定
-- ✅ **HuggingFaceディレクトリごとダウンロード** 🆕
-- ✅ models以下の任意のサブディレクトリに保存可能
-- ✅ **ネストされたディレクトリ対応**（例: `loras/SDXL`, `checkpoints/anime/sdxl`）
-- ✅ SHA-256ハッシュ検証機能
-- ✅ 自動リトライ機能
-- ✅ 進捗表示
-- ✅ 既存ファイルの自動検証
-- ✅ セキュリティ保護（ディレクトリトラバーサル攻撃の防止）
-- ✅ **models.ini による設定管理・再現機能**
-- ✅ **別PCでの環境再現が可能**
-
 ## インストール方法
 
-### 方法1: カスタムノードフォルダに直接配置
-
 ```bash
 cd ComfyUI/custom_nodes
-mkdir model_downloader
-cd model_downloader
-# model_downloader.py をこのディレクトリにコピー
+git clone https://github.com/tori29umai0123/ComfyUI-Model_Downloader.git
 ```
 
-### 方法2: Gitリポジトリとして管理
-
-```bash
-cd ComfyUI/custom_nodes
-git clone <your-repo-url> model_downloader
-```
-
-### 依存パッケージのインストール
-
-```bash
-pip install requests
-```
 
 ### APIキーの設定（必須: CivitAI、オプション: HuggingFace）
 
-多くのCivitAIモデルや、HuggingFaceのプライベート/Gatedモデルをダウンロードする場合、APIキーの設定が必要です。
+CivitAIモデル(必須)や、HuggingFaceのプライベート/Gatedモデルをダウンロードする場合、APIキーの設定が必要です。
 
 #### config.iniファイルでの設定
 
